@@ -1,48 +1,85 @@
-const clients = new Map(); // Store client info by WebSocket connection
-const idCounters = { delphi: 1, react: 1 }; // Separate counters for each app type
+const clients = new Map(); // Map to store client connections by WebSocket
 
+// Counters for generating unique IDs per app type
+const idCounters = {
+  delphi: 0,
+  react: 0,
+};
+
+// Add a new client to the registry
 function addClient(ws) {
-  // Add a new client with default data
-  clients.set(ws, { appID: null, appType: null });
+  clients.set(ws, { appID: null, appType: null, status: 'waiting' });
 }
 
+// Remove a client from the registry
 function removeClient(ws) {
-  // Remove the client from the registry
   clients.delete(ws);
 }
 
-function generateUniqueID(appType) {
-  // Generate a unique ID for the given app type
-  const id = `${appType}_${idCounters[appType]}`;
+// Generate a unique ID for a given app type
+function generateID(appType) {
   idCounters[appType]++;
-  return id;
+  return `${appType}_${idCounters[appType]}`;
 }
 
+// Assign an ID to a client (only if not already assigned)
 function assignID(ws, appType) {
   const client = clients.get(ws);
   if (client && !client.appID) {
-    // Generate and assign a unique ID if not already assigned
-    const uniqueID = generateUniqueID(appType);
-    client.appID = uniqueID;
+    const newID = generateID(appType);
+    client.appID = newID;
     client.appType = appType;
-    return uniqueID;
+    return newID;
   }
-  // Return the existing ID if already assigned
-  return client ? client.appID : null;
+  return client?.appID || null;
 }
 
-function getClientInfo(ws) {
-  // Retrieve app type and ID for the given connection
+// Update the status of a client
+function updateClientStatus(ws, status) {
   const client = clients.get(ws);
   if (client) {
-    return { appID: client.appID, appType: client.appType };
+    client.status = status;
+  }
+}
+
+// Get the app type and ID of a client
+function getAppInfo(ws) {
+  const client = clients.get(ws);
+  return client ? { appID: client.appID, appType: client.appType, status: client.status } : null;
+}
+
+// Get all React apps and their statuses
+function getReactApps() {
+  return Array.from(clients.values())
+    .filter(client => client.appType === 'react')
+    .map(client => ({ appID: client.appID, status: client.status }));
+}
+
+// Find a specific client by app ID and type
+function findClientByAppID(appID, appType) {
+  for (const [ws, client] of clients.entries()) {
+    if (client.appID === appID && client.appType === appType) {
+      return { ws, client };
+    }
   }
   return null;
 }
 
+// Send a message to a specific WebSocket
+function sendMessage(ws, message) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+  }
+}
+
 module.exports = {
+  clients,
   addClient,
   removeClient,
   assignID,
-  getClientInfo,
+  updateClientStatus,
+  getAppInfo,
+  getReactApps,
+  findClientByAppID,
+  sendMessage,
 };

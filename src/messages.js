@@ -1,38 +1,58 @@
-const { assignID, getClientInfo } = require('./clients');
+const { assignID, getAppInfo, getReactApps, updateClientStatus, findClientByAppID, sendMessage } = require('./clients');
 
-function handleMessage(ws, message, wss) {
+function handleMessage(ws, message) {
   switch (message.type) {
     case 'request_id':
-      // Generate or return the existing ID for the client
-      const appType = message.appType;
-      if (!appType || !['delphi', 'react'].includes(appType)) {
-        sendError(ws, 'Invalid appType');
-        return;
-      }
-      const appID = assignID(ws, appType);
+      // Generate or retrieve an ID for the client
+      const appID = assignID(ws, message.appType);
       sendMessage(ws, { type: 'assign_id', appID });
-      console.log(`Assigned ID: ${appID} for appType: ${appType}`);
       break;
 
-    case 'get_client_info':
-      // Retrieve the appType and appID for the current connection
-      const clientInfo = getClientInfo(ws);
-      sendMessage(ws, { type: 'client_info', info: clientInfo });
+    case 'get_app_info':
+      // Respond with the app type, ID, and status of the current client
+      const appInfo = getAppInfo(ws);
+      sendMessage(ws, { type: 'app_info', appInfo });
+      break;
+
+    case 'get_active_react_apps':
+      // Respond with the list of active React apps
+      const reactApps = getReactApps();
+      sendMessage(ws, { type: 'active_react_apps', apps: reactApps });
+      break;
+
+    case 'start_verification':
+      // Forward the verification request to the target React app
+      const targetReact = findClientByAppID(message.targetAppID, 'react');
+      if (targetReact) {
+        updateClientStatus(targetReact.ws, 'confirming');
+        sendMessage(targetReact.ws, {
+          type: 'start_verification',
+          requesterAppID: message.requesterAppID,
+          appointmentId: message.appointmentId,
+          patientData: message.patientData,
+        });
+      } else {
+        sendMessage(ws, { type: 'error', message: 'React App not found or not available.' });
+      }
+      break;
+
+    case 'verification_result':
+      // Forward the verification result to the requesting Delphi app
+      const targetDelphi = findClientByAppID(message.targetAppID, 'delphi');
+      if (targetDelphi) {
+        sendMessage(targetDelphi.ws, {
+          type: 'verification_result',
+          appointmentId: message.appointmentId,
+          result: message.result,
+        });
+        const reactSender = getAppInfo(ws);
+        if (reactSender) updateClientStatus(ws, 'waiting');
+      }
       break;
 
     default:
       console.warn('Unknown message type:', message.type);
   }
-}
-
-function sendMessage(ws, message) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
-  }
-}
-
-function sendError(ws, error) {
-  sendMessage(ws, { type: 'error', message: error });
 }
 
 module.exports = { handleMessage };

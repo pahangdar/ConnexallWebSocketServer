@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const dotenv = require('dotenv');
 const { handleMessage } = require('./messages');
-const { addClient, removeClient, getClientInfo } = require('./clients');
+const { addClient, removeClient, getAppInfo, clients } = require('./clients');
 
 dotenv.config();
 
@@ -18,7 +18,7 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     console.log('Received message:', message);
-    handleMessage(ws, JSON.parse(message), wss);
+    handleMessage(ws, JSON.parse(message));
   });
 
   ws.on('close', () => {
@@ -31,7 +31,13 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Optional: Log connected clients for debugging
+// Log connected apps every second
 setInterval(() => {
-  console.log('Current clients:', Array.from(wss.clients).map(ws => getClientInfo(ws)));
-}, 10000);
+  console.log('Connected Apps:');
+  for (const [ws, client] of require('./clients').clients.entries()) {
+    const appInfo = getAppInfo(ws);
+    if (appInfo) {
+      console.log(`AppID: ${appInfo.appID}, Type: ${appInfo.appType}, Status: ${appInfo.status}`);
+    }
+  }
+}, 1000);
