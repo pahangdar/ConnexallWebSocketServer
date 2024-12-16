@@ -44,6 +44,7 @@ function handleMessage(ws, message) {
           type: 'verification_result',
           appointmentId: message.appointmentId,
           result: message.result,
+          resultDetails: message.resultDetails,
         });
         const reactSender = getAppInfo(ws);
         if (reactSender) updateClientStatus(ws, 'waiting');
