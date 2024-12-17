@@ -3,7 +3,7 @@ const clients = new Map(); // Map to store client connections by WebSocket
 // Counters for generating unique IDs per app type
 const idCounters = {
   delphi: 0,
-  react: 0,
+  kiosk: 0,
 };
 
 // Add a new client to the registry
@@ -38,7 +38,13 @@ function assignID(ws, appType) {
 function updateClientStatus(ws, status) {
   const client = clients.get(ws);
   if (client) {
+    const oldStatus = client.status;
     client.status = status;
+
+    // Broadcast to Delphi apps only if the status has changed and the app is a kiosk
+    if (client.appType === 'kiosk' && oldStatus !== status) {
+      broadcastToDelphi({ type: 'kiosk_list_changed' });
+    }
   }
 }
 
@@ -48,10 +54,10 @@ function getAppInfo(ws) {
   return client ? { appID: client.appID, appType: client.appType, status: client.status } : null;
 }
 
-// Get all React apps and their statuses
-function getReactApps() {
+// Get all Kiosk apps and their statuses
+function getKioskApps() {
   return Array.from(clients.values())
-    .filter(client => client.appType === 'react')
+    .filter(client => client.appType === 'kiosk')
     .map(client => ({ appID: client.appID, status: client.status }));
 }
 
@@ -63,6 +69,15 @@ function findClientByAppID(appID, appType) {
     }
   }
   return null;
+}
+
+// Broadcast a message to all Delphi apps
+function broadcastToDelphi(message) {
+  clients.forEach((client, ws) => {
+    if (client.appType === 'delphi' && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
+    }
+  });
 }
 
 // Send a message to a specific WebSocket
@@ -79,7 +94,8 @@ module.exports = {
   assignID,
   updateClientStatus,
   getAppInfo,
-  getReactApps,
+  getKioskApps,
   findClientByAppID,
+  broadcastToDelphi,
   sendMessage,
 };

@@ -1,4 +1,4 @@
-const { assignID, getAppInfo, getReactApps, updateClientStatus, findClientByAppID, sendMessage } = require('./clients');
+const { assignID, getAppInfo, getKioskApps, updateClientStatus, findClientByAppID, sendMessage, broadcastToDelphi } = require('./clients');
 
 function handleMessage(ws, message) {
   switch (message.type) {
@@ -6,6 +6,9 @@ function handleMessage(ws, message) {
       // Generate or retrieve an ID for the client
       const appID = assignID(ws, message.appType);
       sendMessage(ws, { type: 'assign_id', appID });
+      if (message.appType === 'kiosk') {
+        broadcastToDelphi({ type: 'kiosk_list_changed' });
+      }
       break;
 
     case 'get_app_info':
@@ -14,25 +17,25 @@ function handleMessage(ws, message) {
       sendMessage(ws, { type: 'app_info', appInfo });
       break;
 
-    case 'get_active_react_apps':
-      // Respond with the list of active React apps
-      const reactApps = getReactApps();
-      sendMessage(ws, { type: 'active_react_apps', apps: reactApps });
+    case 'get_active_kiosk_apps':
+      // Respond with the list of active Kiosk apps
+      const kioskApps = getKioskApps();
+      sendMessage(ws, { type: 'active_kiosk_apps', apps: kioskApps });
       break;
 
     case 'start_verification':
-      // Forward the verification request to the target React app
-      const targetReact = findClientByAppID(message.targetAppID, 'react');
-      if (targetReact) {
-        updateClientStatus(targetReact.ws, 'confirming');
-        sendMessage(targetReact.ws, {
+      // Forward the verification request to the target Kiosk app
+      const targetKiosk = findClientByAppID(message.targetAppID, 'kiosk');
+      if (targetKiosk) {
+        updateClientStatus(targetKiosk.ws, 'confirming');
+        sendMessage(targetKiosk.ws, {
           type: 'start_verification',
           requesterAppID: message.requesterAppID,
           appointmentId: message.appointmentId,
           patientData: message.patientData,
         });
       } else {
-        sendMessage(ws, { type: 'error', message: 'React App not found or not available.' });
+        sendMessage(ws, { type: 'error', message: 'Kiosk App not found or not available.' });
       }
       break;
 
@@ -46,8 +49,8 @@ function handleMessage(ws, message) {
           result: message.result,
           resultDetails: message.resultDetails,
         });
-        const reactSender = getAppInfo(ws);
-        if (reactSender) updateClientStatus(ws, 'waiting');
+        const kioskSender = getAppInfo(ws);
+        if (kioskSender) updateClientStatus(ws, 'waiting');
       }
       break;
 
