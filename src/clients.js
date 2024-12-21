@@ -84,6 +84,7 @@ function broadcastToDelphi(message) {
 function sendMessage(ws, message) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
+    console.log('sending message:', message);
   }
 }
 
