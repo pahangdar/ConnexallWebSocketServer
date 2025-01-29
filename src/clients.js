@@ -8,7 +8,7 @@ const idCounters = {
 
 // Add a new client to the registry
 function addClient(ws) {
-  clients.set(ws, { appID: null, appType: null, status: 'waiting' });
+  clients.set(ws, { appID: null, appType: null, status: 'waiting', workingDate: null });
 }
 
 // Remove a client from the registry
@@ -48,10 +48,22 @@ function updateClientStatus(ws, status) {
   }
 }
 
+function updateClientWorkingDate(ws, workingDate) {
+  if (clients.has(ws)) {
+    const client = clients.get(ws);
+    client.workingDate = workingDate;
+  }
+}
+
 // Get the app type and ID of a client
 function getAppInfo(ws) {
   const client = clients.get(ws);
-  return client ? { appID: client.appID, appType: client.appType, status: client.status } : null;
+  return client ?
+    { appID: client.appID,
+      appType: client.appType,
+      status: client.status,
+      workingDate: client.workingDate
+    } : null;
 }
 
 // Get all Kiosk apps and their statuses
@@ -80,6 +92,16 @@ function broadcastToDelphi(message) {
   });
 }
 
+function getClientsByWorkingDate(workingDate) {
+  const delphiClients = [];
+  for (const [ws, client] of clients) {
+    if (client.appType === 'delphi' && client.workingDate === workingDate) {
+      delphiClients.push({ ws, ...client });
+    }
+  }
+  return delphiClients;
+}
+
 // Send a message to a specific WebSocket
 function sendMessage(ws, message) {
   if (ws.readyState === WebSocket.OPEN) {
@@ -94,9 +116,11 @@ module.exports = {
   removeClient,
   assignID,
   updateClientStatus,
+  updateClientWorkingDate,
   getAppInfo,
   getKioskApps,
   findClientByAppID,
   broadcastToDelphi,
+  getClientsByWorkingDate,
   sendMessage,
 };

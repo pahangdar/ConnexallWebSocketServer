@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const dotenv = require('dotenv');
+
 const { handleMessage } = require('./messages');
 const { addClient, removeClient, getAppInfo, clients, broadcastToDelphi } = require('./clients');
 
@@ -47,7 +48,7 @@ setInterval(() => {
   for (const [ws, client] of clients.entries()) {
     const appInfo = getAppInfo(ws);
     if (appInfo) {
-      console.log(`AppID: ${appInfo.appID}, Type: ${appInfo.appType}, Status: ${appInfo.status}`);
+      console.log(`AppID: ${appInfo.appID}, Type: ${appInfo.appType}, Status: ${appInfo.status}, workingDate: ${appInfo.workingDate}`);
     }
   }
 }, 1000);

@@ -1,4 +1,5 @@
-const { assignID, getAppInfo, getKioskApps, updateClientStatus, findClientByAppID, sendMessage, broadcastToDelphi } = require('./clients');
+const { assignID, getAppInfo, getKioskApps, updateClientStatus, updateClientWorkingDate,
+   findClientByAppID, sendMessage, broadcastToDelphi, getClientsByWorkingDate } = require('./clients');
 
 function handleMessage(ws, message) {
   switch (message.type) {
@@ -49,9 +50,29 @@ function handleMessage(ws, message) {
           result: message.result,
           resultDetails: message.resultDetails,
         });
-        const kioskSender = getAppInfo(ws);
-        if (kioskSender) updateClientStatus(ws, 'waiting');
+        console.log(`✅ Verification result sent to ${message.targetAppID}`);
+      } else {
+        console.warn(`⚠️ Target Delphi ${message.targetAppID} not found! Kiosk status will be reset to 'waiting'.`);
       }
+      // Always reset kiosk status to 'waiting' (even if Delphi was not found)
+      const kioskSender = getAppInfo(ws);
+      if (kioskSender) {
+        updateClientStatus(ws, 'waiting');
+        console.log(`🔄 Kiosk ${kioskSender.appID} status reset to 'waiting'`);
+      }
+      break;
+
+    case 'update_working_date':
+      updateClientWorkingDate(ws, message.workingDate);
+      sendMessage(ws, { type: 'working_date_updated', workingDate: message.workingDate });
+      break;
+
+    case 'notify_table_change':
+      const { table, workingDate, senderAppID } = message;
+      const delphiClients = getClientsByWorkingDate(workingDate);
+      delphiClients.forEach(({ ws: delphiWs }) => {
+        sendMessage(delphiWs, { type: 'table_updated', table, workingDate, senderAppID });
+      });
       break;
 
     default:
